@@ -8,11 +8,13 @@ import UUID, { ZERO } from '@swarm/ron-uuid';
 import lww from './lww';
 import log from './log';
 import set from './set';
+import rga from './rga';
 
 const rdt: { [string]: { type: UUID, reduce: Batch => Frame } } = {
   lww,
   log,
   set,
+  rga
 };
 
 function empty(batch: Batch): Frame {

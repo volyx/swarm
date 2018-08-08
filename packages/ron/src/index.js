@@ -62,6 +62,10 @@ export default class Op {
     return this.term === '?';
   }
 
+  isRaw(): boolean {
+    return this.term === ';';
+  }
+
   isRegular(): boolean {
     return !this.isHeader() && !this.isQuery();
   }
@@ -270,6 +274,27 @@ export class Frame {
   // $FlowFixMe - computed property
   [Symbol.iterator](): Iterator<Op> {
     return new Cursor(this.body);
+  }
+
+  isHeader(): boolean {
+      for (const op of this) {
+          return op.isHeader();
+      }
+      return ZERO_UUID;
+  }
+
+  event(): UUID {
+      for (const op of this) {
+          return op.event;
+      }
+      return ZERO_UUID;
+  }
+
+  ref(): UUID {
+      for (const op of this) {
+          return op.location;
+      }
+      return ZERO_UUID;
   }
 
   toString(): string {
