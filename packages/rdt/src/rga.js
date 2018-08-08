@@ -1,6 +1,6 @@
 // @flow
 
-import Op, {Batch, Frame, FRAME_SEP} from '@swarm/ron';
+import Op, {Batch, Frame, FRAME_SEP, ron2js as stringToJs} from '@swarm/ron';
 import type { Atom }  from '@swarm/ron';
 import UUID, { ZERO as ZERO_UUID } from '@swarm/ron-uuid';
 import IHeap, { refComparator, eventComparatorDesc } from './iheap';
@@ -136,6 +136,8 @@ export function reduce(batch: Batch): Frame {
             // TODO
             // result.AppendReducedRef(ref, *op);
             // for (let o in op) {
+            op.location = ref;
+            // console.log("pushWithTerm " + op.toString());
                 result.pushWithTerm(op, ',');
             // }
 
@@ -223,7 +225,7 @@ export function ron2js(rawFrame: string): string {
     let sb:string = '';
     for (const op of rga) {
         if (op.location.isZero()) {
-             sb = sb + op.values;
+             sb = sb + stringToJs(op.values);
         }
     }
     // for (rga.next(); !rga.eof() && !rga.isHeader(); rga.next()) {
