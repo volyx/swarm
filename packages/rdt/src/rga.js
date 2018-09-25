@@ -1,9 +1,9 @@
 // @flow
 
-import Op, {Batch, Frame, FRAME_SEP, ron2js as stringToJs} from '@swarm/ron';
+import Op, {Batch, Frame, Cursor, FRAME_SEP, ron2js as stringToJs} from '@swarm/ron';
 import type { Atom }  from '@swarm/ron';
 import UUID, { ZERO as ZERO_UUID } from '@swarm/ron-uuid';
-import IHeap, { refComparator, eventComparatorDesc } from './iheap';
+import IHeap, { refComparatorDesc, eventComparatorDesc } from './iheap';
 import {ZERO} from "../../ron-uuid/lib";
 
 export const type = UUID.fromString('rga');
@@ -16,16 +16,16 @@ const RM_UUID = UUID.fromString('rm');
 
 // rmmap map[ron.UUID]ron.UUID
 function AddMax(rmmap: Map, event: UUID, target: UUID) {
-    let ok = rmmap.has(target);
-    let rm  = rmmap.get(target);
+    let ok = rmmap.has(target.toString());
+    let rm  = rmmap.get(target.toString());
     if (!ok || event.le(rm)) {
-        rmmap[target] = event
+        rmmap[target.toString()] = event
     }
 }
 
-function refOrderedBatchComparator(): (Frame, Frame) => number {
-    return (...args: Array<Frame>): number => {
-        let less = args[0].ref().lt(args[1].ref());
+function refOrderedBatchComparator(): (Cursor, Cursor) => number {
+    return (...args: Array<Cursor>): number => {
+        let less = args[0].op.uuid(3).lt(args[1].op.uuid(3));
         // return (less) ? -1 : 1;
         return (less) ? -1 : 1;
     };
@@ -37,7 +37,7 @@ function revOrderedUUIDSliceComparator(): (UUID, UUID) => number {
     };
 }
 
-const active = new IHeap(refComparator, eventComparatorDesc);
+const active = new IHeap(eventComparatorDesc, refComparatorDesc);
 // <UUID,UUID>
 const rms = new Map();
 const ins = [];
@@ -65,7 +65,7 @@ export function reduce(batch: Batch): Frame {
     let spec:Op = new Op(rdtype,object, event, ZERO_UUID, undefined, FRAME_SEP);
 
     let produce:Batch = new Batch();
-    let pending = [];
+    let pending: Array<Cursor> = [];
 
     for (const frame of batch) {
         if (!frame.isHeader()) {
@@ -73,7 +73,7 @@ export function reduce(batch: Batch): Frame {
                 AddMax(rms, frame.event(), frame.ref())
             } else {
                 // pending = append(pending, b)
-                pending.push(frame);
+                pending.push(frame.cursor());
             }
         } else {
             if (frame.ref().eq(RM_UUID)) { // rm batch, must be the last
@@ -83,7 +83,7 @@ export function reduce(batch: Batch): Frame {
                     frame.next()
                 }
             } else {
-                pending.push(frame);
+                pending.push(frame.cursor());
             }
         }
     }
@@ -91,65 +91,77 @@ export function reduce(batch: Batch): Frame {
     pending.sort(refOrderedBatchComparator());
 
     for (let i = pending.length - 1; i >= 0; i--) {
-        traps[pending[i].ref().toString()] = i;
+        traps[pending[i].op.uuid(3).toString()] = i;
+        console.log(pending[i].op.uuid(3).toString() + " " + i)
     }
 
     for (let i = 0; i < pending.length;) {
 
         let result:Frame = new Frame();
 
-        let at:UUID = pending[i].ref();
-        for (; i < pending.length /*&& !pending[i].eof() */&& pending[i].ref().eq(at); i++) {
-            active.put(pending[i]);
+        let at:UUID = pending[i].op.uuid(3);
+        for (; i < pending.length && !pending[i].eof() && pending[i].op.uuid(3).eq(at); i++) {
+            active.put(new Frame(pending[i].body));
         }
         delete traps[at.toString()];
 
-        spec.ref = at;
-        spec.event = event;
+        spec.location = new UUID(at.value, at.origin, at.sep);
+        spec.event = new UUID(event.value, event.origin, event.sep);
         // TODO
         // result.AppendStateHeader(spec)
 
         result.push(
-            spec
+            spec.clone()
             // new Op(type, op.uuid(1), op.uuid(2), ZERO, undefined, FRAME_SEP),
         );
 
-        for (;!active.eof();) {
-            let op:Op = active.current();
-            // let op:Frame = active.frame();
-            // console.log(op);
-            let ev:UUID = op.event;
-            // spec.SetEvent(ev)
-            spec.event = ev;
-            let ref:UUID = op.location;
-            if (op.isRaw()) {
-                ref = ZERO_UUID;
-            }
-            if (ev in rms) {
-                let rm = rms[ev];
-                if (rm.lt(ref)) {
-                    ref = rm;
+        while (!active.eof()) {
+            // for (const op of active.frame()) {
+                let op:Op = active.current();
+                // let op:Op = active.nextPrim();
+                if (!op) break;
+                // let op:Frame = active.frame();
+                // console.log(op.toString());
+                let ev:UUID = new UUID(op.event.value, op.event.origin, op.event.sep);
+                // spec.SetEvent(ev)
+                spec.event = ev;
+                let ref:UUID = new UUID(op.location.value, op.location.origin, op.location.sep);
+                if (op.isRaw()) {
+                    ref = ZERO_UUID;
                 }
-                delete rms[ev];
-            }
+                if (ev in rms) {
+                    let rm = rms[ev];
+                    if (rm.lt(ref)) {
+                        ref = rm;
+                    }
+                    delete rms[ev];
+                }
 
-            // TODO
-            // result.AppendReducedRef(ref, *op);
-            // for (let o in op) {
-            op.location = ref;
-            // console.log("pushWithTerm " + op.toString());
+                // TODO
+                // result.AppendReducedRef(ref, *op);
+                op.location = new UUID(ref.value, ref.origin, ref.sep);
+                op.event = new UUID(ev.value, ev.origin, ev.sep);
+                // console.log("ev " + ev.toString());
+                let s = "op      " + op.toString() + "\n";
+                s = s + "result  " + result.toString() + "\n";
+
                 result.pushWithTerm(op, ',');
+                s = s + "result2 " + result.toString();
+                console.log(s);
+                active.nextPrim();
+
+                // console.log("find trap ev=" + ev.toString());
+                for (let t = traps[ev.toString()]; (t != null) && t < pending.length; t++) {
+                    if (!pending[t].eof() && pending[t].op.uuid(3).eq(ev)) {
+                        active.put(pending[t]);
+                    } else {
+                        break;
+                    }
+                }
             // }
 
-            active.nextPrim();
 
-            for (let t = traps[ev]; (t != null) && t < pending.length; t++) {
-                if (/*!pending[t].eof() &&*/ pending[t].ref().eq(ev)) {
-                    active.put(pending[t]);
-                } else {
-                    break;
-                }
-            }
+
         }
         produce.push(result);
 
@@ -164,22 +176,22 @@ export function reduce(batch: Batch): Frame {
         spec.event = event;
         spec.location = RM_UUID;
         // result.AppendStateHeader(spec)
-        result.push(spec);
+        result.push(spec.clone());
         // take removed event ids
 
         let refs = [];
         for (let ref in rms) {
-            refs.push(ref);
+            refs.push(UUID.fromString(ref));
         }
         refs.sort(revOrderedUUIDSliceComparator());
         // scan, append
         for (let key in refs) {
             spec.location = key;
-            spec.event = rms[key];
+            spec.event = rms[key.toString()];
             // TODO
             // result.AppendEmptyReducedOp(spec);
             result.pushWithTerm(spec, ',');
-            delete rms[key];
+            delete rms[key.toString()];
         }
         produce.push(result);
 
@@ -190,24 +202,34 @@ export function reduce(batch: Batch): Frame {
         delete traps[x];
     }
 
+    // int l = produce.frames.length;
+    // for (var i = 0; i < pending.length; i++) {
+    //     if (!pending[i].eof()) {
+    //         produce = new Batch(Frame.append(produce.frames, pending[i].split().frames));
+    //     }
+    // }
+
     let l = produce.length;
     for (let i = 0; i < pending.length; i++) {
-        // TODO
-        // if (!pending[i].eof()) {
-        //     for (let f of Batch.splitByID(pending[i]).frames) {
-        //         produce.push(f);
-        //     }
-        // }
+        // if (!pending[i].eof()){
+        let batch = Batch.split(pending[i].body);
+        if (batch.frames.length === 1) {
+            continue;
+        }
+        for (let f of batch.frames) {
+            produce.push(f);
+        }
     }
 
     if (produce.length === 1) {
         return produce.frames[0];
-    } else if (l === produce.length) {
+    } else if (l === produce.frames.length) {
         return produce.join();
     } else {
-        let b = produce[0];
-        produce.frames[produce.length-1] = produce[0].frames;
-        produce.frames[produce.length-1] = b.frames;
+        // produce.frames[0] = produce.frames[produce.frames.length - 1];
+        // produce.frames[produce.frames.length - 1] = produce.frames[0];
+        produce.frames[0] = produce.clone().frames[produce.frames.length - 1];
+        produce.frames[produce.frames.length - 1] = produce.clone().frames[0];
         return reduce(produce);
     }
 

@@ -11,7 +11,7 @@ export default class UUID {
   constructor(value: string, origin: string, sep: ?string): UUID {
     this.value = value;
     this.origin = origin;
-    this.sep = sep || '-';
+    this.sep = sep || '$';
     return this;
   }
 

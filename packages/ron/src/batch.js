@@ -132,4 +132,36 @@ export default class Batch implements Iterator<Frame> {
     b.push(c);
     return b;
   }
+
+  static split(source: string): Batch {
+      const b = new Batch();
+
+      let next: Frame = null;
+      for (const op of new Frame(source)) {
+
+          if (op.term !== ',') {
+            if (next) {
+                b.push(next);
+            }
+            next = new Frame();
+          }
+          next.push(op);
+
+      }
+      if (next) {
+          b.push(next);
+      }
+
+      return b;
+  }
+
+  join(): Frame {
+      let frame: Frame = new Frame();
+      for (let f of this.frames) {
+          for(let op of f) {
+              frame.push(op);
+          }
+      }
+      return frame;
+  }
 }

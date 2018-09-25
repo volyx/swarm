@@ -23,3 +23,15 @@ test('Batch.splitByID', () => {
   // console.log(JSON.stringify(b, null, 2));
   // console.log(JSON.stringify(original, null, 2));
 });
+
+test('Batch.split', () => {
+  const str = '*rga#test@2!@1\'A\'@2\'B\' *#@5:3!@4:0\'D\'@5\'E\'';
+  const res = Batch.split(str);
+  expect(res.frames).toHaveLength(2);
+});
+
+test('Batch.split one frame', () => {
+  const str = '*rga#test@3:2\'C\';';
+  const res = Batch.split(str);
+  expect(res.frames).toHaveLength(1);
+});

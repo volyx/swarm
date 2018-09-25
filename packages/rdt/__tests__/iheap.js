@@ -59,3 +59,19 @@ test('IHeap merge', () => {
   }
   expect(res.toString()).toBe(frameR);
 });
+
+test('IHeap test', () => {
+
+  const frameA = "*rga#test@5!@1:4a'A'@2:5'B'";
+  const frameB = "*rga#test@4!@1:4'A'@3:0'C'";
+
+  const heap = new IHeap(eventComparatorDesc, refComparator);
+  heap.put(new Frame(frameA));
+  heap.put(new Frame(frameB));
+
+  while (!heap.eof()) {
+    const frame = heap.current();
+    console.log(frame.toString());
+    heap.nextPrim();
+  }
+});

@@ -102,14 +102,21 @@ export default class Op {
     let ret = '';
     const ctx = ctxOp || ZERO;
     let expComma = ctx.term !== ';';
-
+    let skips = 0;
     for (const u of [0, 1, 2, 3]) {
       const uuid = this.uuid(u);
       const same = ctx.uuid(u);
-      if (uuid.eq(same)) continue;
+      if (uuid.eq(same)) {
+          skips++;
+         continue;
+      }
       let str = uuid.toString(same);
       ret += UUID_SEPS[u];
       ret += str;
+    }
+
+    if (skips === 4) {
+        ret += '@';
     }
 
     ret += this.values;
@@ -283,6 +290,13 @@ export class Frame {
       return ZERO_UUID;
   }
 
+  isComment(): boolean {
+      for (const op of this) {
+          return op.isComment();
+      }
+      return ZERO_UUID;
+  }
+
   event(): UUID {
       for (const op of this) {
           return op.event;
@@ -344,6 +358,10 @@ export class Frame {
     const cumul: Op[] = [];
     for (const op of this) cumul.push(op);
     return cumul;
+  }
+
+  cursor(): Iterator<Op> {
+    return new Cursor(this.body);
   }
 }
 
