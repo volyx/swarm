@@ -69,7 +69,7 @@ export function reduce(batch: Batch): Frame {
 
     for (const frame of batch) {
         if (!frame.isHeader()) {
-            if (frame.length === 0) {
+            if (frame.unzip()[0].values === "") {
                 AddMax(rms, frame.event(), frame.ref())
             } else {
                 // pending = append(pending, b)
@@ -130,8 +130,8 @@ export function reduce(batch: Batch): Frame {
                     ref = ZERO_UUID;
                 }
                 if (ev in rms) {
-                    let rm = rms[ev];
-                    if (rm.lt(ref)) {
+                    let rm:UUID = rms[ev];
+                    if (rm.gt(ref)) {
                         ref = rm;
                     }
                     delete rms[ev];

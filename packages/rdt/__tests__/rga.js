@@ -95,13 +95,13 @@ test('rga reduce', () => {
         //     '*~ \'rm applied\'!',
         //     '*rga#test@4!@1:4\'A\'@3:0\'C\'@2\'B\''
         // ],
-        [
-            '*~ \'an op and a backspace rm\'?',
-            '*rga#test@2:1\'B\';',                                                    // error rm
-            '*rga#test@3:2;',
-            '*~ \'a patch, rm applied\'!',
-            '*rga#test@3:1!@2:3\'B\''
-        ],
+        // [
+        //     '*~ \'an op and a backspace rm\'?',
+        //     '*rga#test@2:1\'B\';',                                                    // ok rm
+        //     '*rga#test@3:2;',
+        //     '*~ \'a patch, rm applied\'!',
+        //     '*rga#test@3:1!@2:3\'B\''
+        // ],
         // [
         //     '*~ \'a patch and a backspace rm\'?',
         //     '*rga#test@3:1!@2:0\'B\'@3\'C\'',                                       // error rm
@@ -147,7 +147,7 @@ test('rga reduce', () => {
         // [
         //     '*~ \'rm eclipsed by a concurrent rm\'?',
         //     '*rga#test@4!@1\'A\'@2:4\'B\'',
-        //     '*rga#test@3:2;',                                                      // error rm
+        //     '*rga#test@3:2;',                                                      // ok rm
         //     '*~ \'skipped\'!',
         //     '*rga#test@3!@1\'A\'@2:4\'B\''
         // ]
@@ -155,7 +155,7 @@ test('rga reduce', () => {
         //     '*~\'reorders: unapplicable remove\'?',
         //     '*rga#test@2!@1\'A\'@2\'B\'',
         //     '*rga#test@4:3;',
-        //     '*~ \'rm that is stashed in a separate rm frame\'!',                 // ok rm
+        //     '*~ \'rm that is stashed in a separate rm frame\'!',                 // error rm
         //     '*rga#test@4!@1\'A\'@2\'B\'',
         //     '*#@4:rm!:3,'
         // ],
